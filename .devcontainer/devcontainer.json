@@ -1,0 +1,11 @@
+{
+    "name": "multi-agent-simulation",
+    "dockerFile": "Dockerfile",
+	"mounts": [{ "source": "/media/yusaku/6.0TB Hard Disk/data", "target": "${containerWorkspaceFolder}/data", "type":"bind"}],
+    "extensions": [
+		"ms-python.python",
+		"ms-python.vscode-pylance",
+		"njpwerner.autodocstring"
+	],
+	"runArgs": ["--gpus", "all", "--shm-size", "32G"]
+}
