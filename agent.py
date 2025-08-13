@@ -39,6 +39,9 @@ class DQNAgent:
         return torch.argmax(q_values).item()
 
     def store(self, state, action, reward, next_state):
+        # state, next_stateをリスト化して保存
+        state = [state] if not isinstance(state, list) else state
+        next_state = [next_state] if not isinstance(next_state, list) else next_state
         if len(self.memory) >= self.memory_size:
             self.memory.pop(0)
         self.memory.append((state, action, reward, next_state))
@@ -47,7 +50,14 @@ class DQNAgent:
         if len(self.memory) < self.batch_size:
             return
         batch = random.sample(self.memory, self.batch_size)
-        states, actions, rewards, next_states = zip(*batch)
+        # actionsが範囲外のサンプルを除外
+        valid_batch = [sample for sample in batch if isinstance(sample[1], int) and 0 <= sample[1] < self.action_dim]
+        if len(valid_batch) < self.batch_size:
+            return
+        states, actions, rewards, next_states = zip(*valid_batch)
+        import numpy as np
+        states_arr = np.array(states)
+    # ...existing code...
         states = torch.FloatTensor(states).to(self.device)
         actions = torch.LongTensor(actions).to(self.device)
         rewards = torch.FloatTensor(rewards).to(self.device)

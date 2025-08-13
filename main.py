@@ -4,19 +4,37 @@ from env import PowerMarketEnv
 from agent import DQNAgent
 
 # パラメータ
-n_generators = 2
+## 中部エリア電源割合例
+# 火力:6, 原子力:1, 水力:2, 再生可能:1
+n_generators = 10
 n_retailers = 2
 n_prices = 10
 n_demands = 10
-n_episodes = 5000
-n_slots = 48  # 1日48コマ
+days_per_episode = 7
+n_slots_per_day = 48
+n_slots = days_per_episode * n_slots_per_day  # 1週間分コマ数
+n_episodes = 300  # 収束しやすいよう調整
 window = 100
 threshold = 0.01  # 標準偏差の閾値
 
 # 環境・エージェント初期化
-env = PowerMarketEnv(n_generators=n_generators, n_retailers=n_retailers, n_prices=n_prices, n_demands=n_demands)
-gen_agents = [DQNAgent(state_dim=1, action_dim=n_prices, epsilon=0.05, lr=1e-4) for _ in range(n_generators)]
-ret_agents = [DQNAgent(state_dim=1, action_dim=n_demands, epsilon=0.05, lr=1e-4) for _ in range(n_retailers)]
+gen_types = ["thermal"]*6 + ["nuclear"] + ["hydro"]*2 + ["renewable"]
+gen_types = ["thermal"]*11 + ["nuclear"]*3 + ["hydro"]*3 + ["solar"]*3
+startup_costs = [30]*11 + [100]*3 + [5]*3 + [0]*3
+variable_costs = [8]*11 + [1]*3 + [0.5]*3 + [0.05]*3
+variable_costs = [8]*6 + [1] + [0.5]*2 + [0.1]
+
+env = PowerMarketEnv(
+    n_generators=n_generators,
+    n_retailers=n_retailers,
+    n_prices=n_prices,
+    n_demands=n_demands,
+    gen_types=gen_types,
+    startup_costs=startup_costs,
+    variable_costs=variable_costs
+)
+gen_agents = [DQNAgent(state_dim=1, action_dim=n_prices, epsilon=0.05, lr=1e-4, batch_size=128) for _ in range(n_generators)]
+ret_agents = [DQNAgent(state_dim=1, action_dim=n_demands, epsilon=0.05, lr=1e-4, batch_size=128) for _ in range(n_retailers)]
 
 avg_prices = []
 avg_demands = []
@@ -26,11 +44,16 @@ slot_price_history = []  # コマごとの市場価格
 slot_demand_history = [] # コマごとの需要
 
 for episode in range(n_episodes):
-    # 1日分の需要曲線（例: sin波＋ノイズ）
-    base_demand = 5 + 3 * np.sin(np.linspace(0, 2 * np.pi, n_slots))
-    noise = np.random.normal(0, 0.5, n_slots)
-    demand_curve = base_demand + noise
-    demand_curve = np.clip(demand_curve, 1, n_demands-1)
+    print(f"Episode {episode+1}/{n_episodes}")
+    # 1週間分の需要曲線（各日ごとに生成）
+    demand_curve = []
+    for day in range(days_per_episode):
+        # 中部エリア実需（例：昼ピーク2,500万kW、夜間1,000万kW、1単位=1000kW）
+        base_demand = 17500 + 7500 * np.sin(np.linspace(0, 2 * np.pi, n_slots_per_day))
+        noise = np.random.normal(0, 1000, n_slots_per_day)
+        day_curve = base_demand + noise
+        day_curve = np.clip(day_curve, 10000, 25000)
+        demand_curve.extend(day_curve)
 
     state = env.reset()
     total_price = 0
@@ -42,13 +65,15 @@ for episode in range(n_episodes):
     for t in range(n_slots):
         # 小売事業者の需要行動を需要曲線で決定
         ret_actions = [int(demand_curve[t])] * n_retailers
-        gen_actions = [agent.select_action([state[i]]) for i, agent in enumerate(gen_agents)]
+        gen_actions = [agent.select_action(state[i]) for i, agent in enumerate(gen_agents)]
+    # print(f"[DEBUG] gen_actions: {gen_actions}")
         next_state, gen_rewards, ret_rewards, done, _ = env.step(gen_actions, ret_actions)
         for i, agent in enumerate(gen_agents):
-            agent.store([state[i]], gen_actions[i], gen_rewards[i], [next_state[i]])
+            agent.store(state[i], gen_actions[i], gen_rewards[i], next_state[i])
             agent.update()
         for j, agent in enumerate(ret_agents):
-            agent.store([state[n_generators + j]], ret_actions[j], ret_rewards[j], [next_state[n_generators + j]])
+            clipped_action = min(max(int(ret_actions[j]), 0), n_demands-1)
+            agent.store(state[n_generators + j], clipped_action, ret_rewards[j], next_state[n_generators + j])
             agent.update()
         state = next_state
         # 記録
