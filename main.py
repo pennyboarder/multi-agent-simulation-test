@@ -1,156 +1,38 @@
-import numpy as np
-import matplotlib.pyplot as plt
-from env import PowerMarketEnv
-from agent import DQNAgent
+
+# --- 新しい分割構成 ---
+from simulation import run_simulation
+from visualization import plot_results, plot_generation_mix
+from utils import judge_convergence
 
 # パラメータ
-## 中部エリア電源割合例
-# 火力:6, 原子力:1, 水力:2, 再生可能:1
-n_generators = 10
+n_generators = 20
 n_retailers = 2
 n_prices = 10
 n_demands = 10
 days_per_episode = 7
 n_slots_per_day = 48
-n_slots = days_per_episode * n_slots_per_day  # 1週間分コマ数
-n_episodes = 300  # 収束しやすいよう調整
+n_episodes = 500
 window = 100
-threshold = 0.01  # 標準偏差の閾値
+threshold = 0.01
+gen_types = ["thermal"]*11 + ["nuclear"]*3 + ["pumped_storage"]*3 + ["solar"]*3
+startup_costs = [30]*11 + [100]*3 + [10]*3 + [0]*3
+variable_costs = [8]*11 + [1]*3 + [0.8]*3 + [0.05]*3
 
-# 環境・エージェント初期化
-gen_types = ["thermal"]*6 + ["nuclear"] + ["hydro"]*2 + ["renewable"]
-gen_types = ["thermal"]*11 + ["nuclear"]*3 + ["hydro"]*3 + ["solar"]*3
-startup_costs = [30]*11 + [100]*3 + [5]*3 + [0]*3
-variable_costs = [8]*11 + [1]*3 + [0.5]*3 + [0.05]*3
-variable_costs = [8]*6 + [1] + [0.5]*2 + [0.1]
-
-env = PowerMarketEnv(
-    n_generators=n_generators,
-    n_retailers=n_retailers,
-    n_prices=n_prices,
-    n_demands=n_demands,
-    gen_types=gen_types,
-    startup_costs=startup_costs,
-    variable_costs=variable_costs
+avg_prices, avg_demands, avg_gen_rewards, avg_ret_rewards, slot_price_history, slot_demand_history, slot_gen_actions_history, n_slots = run_simulation(
+    n_generators, n_retailers, n_prices, n_demands,
+    days_per_episode, n_slots_per_day, n_episodes,
+    gen_types, startup_costs, variable_costs, window, threshold
 )
-gen_agents = [DQNAgent(state_dim=1, action_dim=n_prices, epsilon=0.05, lr=1e-4, batch_size=128) for _ in range(n_generators)]
-ret_agents = [DQNAgent(state_dim=1, action_dim=n_demands, epsilon=0.05, lr=1e-4, batch_size=128) for _ in range(n_retailers)]
 
-avg_prices = []
-avg_demands = []
-avg_gen_rewards = []
-avg_ret_rewards = []
-slot_price_history = []  # コマごとの市場価格
-slot_demand_history = [] # コマごとの需要
-
-for episode in range(n_episodes):
-    print(f"Episode {episode+1}/{n_episodes}")
-    # 1週間分の需要曲線（各日ごとに生成）
-    demand_curve = []
-    for day in range(days_per_episode):
-        # 中部エリア実需（例：昼ピーク2,500万kW、夜間1,000万kW、1単位=1000kW）
-        base_demand = 17500 + 7500 * np.sin(np.linspace(0, 2 * np.pi, n_slots_per_day))
-        noise = np.random.normal(0, 1000, n_slots_per_day)
-        day_curve = base_demand + noise
-        day_curve = np.clip(day_curve, 10000, 25000)
-        demand_curve.extend(day_curve)
-
-    state = env.reset()
-    total_price = 0
-    total_demand = 0
-    total_gen_reward = 0
-    total_ret_reward = 0
-    slot_prices = []
-    slot_demands = []
-    for t in range(n_slots):
-        # 小売事業者の需要行動を需要曲線で決定
-        ret_actions = [int(demand_curve[t])] * n_retailers
-        gen_actions = [agent.select_action(state[i]) for i, agent in enumerate(gen_agents)]
-    # print(f"[DEBUG] gen_actions: {gen_actions}")
-        next_state, gen_rewards, ret_rewards, done, _ = env.step(gen_actions, ret_actions)
-        for i, agent in enumerate(gen_agents):
-            agent.store(state[i], gen_actions[i], gen_rewards[i], next_state[i])
-            agent.update()
-        for j, agent in enumerate(ret_agents):
-            clipped_action = min(max(int(ret_actions[j]), 0), n_demands-1)
-            agent.store(state[n_generators + j], clipped_action, ret_rewards[j], next_state[n_generators + j])
-            agent.update()
-        state = next_state
-        # 記録
-        market_price = min(gen_actions) if sum(gen_actions) >= sum(ret_actions) else max(gen_actions)
-        slot_prices.append(market_price)
-        slot_demands.append(sum(ret_actions))
-        total_price += market_price
-        total_demand += sum(ret_actions)
-        total_gen_reward += np.mean(gen_rewards)
-        total_ret_reward += np.mean(ret_rewards)
-    avg_prices.append(total_price / n_slots)
-    avg_demands.append(total_demand / n_slots)
-    avg_gen_rewards.append(total_gen_reward / n_slots)
-    avg_ret_rewards.append(total_ret_reward / n_slots)
-    slot_price_history.append(slot_prices)
-    slot_demand_history.append(slot_demands)
-    if episode % 100 == 0:
-        print(f"Episode {episode}: Last Slot GenActions {gen_actions}, RetActions {ret_actions}")
-        print(f"GenRewards {gen_rewards}, RetRewards {ret_rewards}")
-
-# 収束判定機能
-def judge_convergence(data, name, threshold):
-    if len(data) < window:
-        print(f"Not enough data for convergence check: {name}")
-        return False
-    std = np.std(data[-window:])
-    print(f"Convergence check for {name}: std={std:.5f}")
-    return std < threshold
-
-price_converged = judge_convergence(avg_prices, "Price", threshold)
-demand_converged = judge_convergence(avg_demands, "Demand", threshold)
-gen_reward_converged = judge_convergence(avg_gen_rewards, "Generator Reward", threshold)
-ret_reward_converged = judge_convergence(avg_ret_rewards, "Retailer Reward", threshold)
+price_converged = judge_convergence(avg_prices, "Price", window, threshold)
+demand_converged = judge_convergence(avg_demands, "Demand", window, threshold)
+gen_reward_converged = judge_convergence(avg_gen_rewards, "Generator Reward", window, threshold)
+ret_reward_converged = judge_convergence(avg_ret_rewards, "Retailer Reward", window, threshold)
 
 if price_converged and demand_converged and gen_reward_converged and ret_reward_converged:
     print("収束判定: すべての指標が収束しました！")
 else:
     print("収束判定: いずれかの指標が収束していません。")
 
-# グラフ描画
-plt.figure(figsize=(14,10))
-plt.subplot(2,2,1)
-plt.plot(avg_prices)
-plt.title('Average Market Price per Episode')
-plt.xlabel('Episode')
-plt.ylabel('Price')
-
-plt.subplot(2,2,2)
-plt.plot(avg_demands)
-plt.title('Average Total Demand per Episode')
-plt.xlabel('Episode')
-plt.ylabel('Demand')
-
-plt.subplot(2,2,3)
-plt.plot(avg_gen_rewards)
-plt.title('Average Generator Reward per Episode')
-plt.xlabel('Episode')
-plt.ylabel('Reward')
-
-plt.subplot(2,2,4)
-plt.plot(avg_ret_rewards)
-plt.title('Average Retailer Reward per Episode')
-plt.xlabel('Episode')
-plt.ylabel('Reward')
-
-plt.tight_layout()
-plt.savefig("market_simulation_results.png")
-print("Saved graph as market_simulation_results.png")
-
-# 1日分のコマごとの市場価格推移（最終エピソード）
-plt.figure(figsize=(10,4))
-plt.plot(slot_price_history[-1], label='Market Price')
-plt.plot(slot_demand_history[-1], label='Total Demand')
-plt.title('Market Price and Demand per Slot (Last Episode)')
-plt.xlabel('Slot (30min)')
-plt.ylabel('Value')
-plt.legend()
-plt.tight_layout()
-plt.savefig("market_price_per_slot.png")
-print("Saved graph as market_price_per_slot.png")
+plot_results(avg_prices, avg_demands, avg_gen_rewards, avg_ret_rewards)
+plot_generation_mix(slot_gen_actions_history, gen_types, n_slots)
