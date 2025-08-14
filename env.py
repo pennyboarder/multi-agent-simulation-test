@@ -1,18 +1,33 @@
 import numpy as np
 
+
 class PowerMarketEnv:
-    def __init__(self, n_generators=2, n_retailers=2, n_prices=10, n_demands=10,
-                 gen_types=None, startup_costs=None, variable_costs=None):
+    def __init__(
+        self,
+        n_generators=2,
+        n_retailers=2,
+        n_prices=10,
+        n_demands=10,
+        gen_types=None,
+        startup_costs=None,
+        variable_costs=None,
+    ):
         self.n_generators = n_generators
         self.n_retailers = n_retailers
         self.n_prices = n_prices
         self.n_demands = n_demands
         # 発電機タイプ（"thermal" or "nuclear"）
-        self.gen_types = gen_types if gen_types is not None else ["thermal"] * n_generators
+        self.gen_types = (
+            gen_types if gen_types is not None else ["thermal"] * n_generators
+        )
         # 起動費（例: thermal=3.0, nuclear=5.0）
-        self.startup_costs = startup_costs if startup_costs is not None else [3.0] * n_generators
+        self.startup_costs = (
+            startup_costs if startup_costs is not None else [3.0] * n_generators
+        )
         # 変動費（例: thermal=2.0, nuclear=0.5）
-        self.variable_costs = variable_costs if variable_costs is not None else [2.0] * n_generators
+        self.variable_costs = (
+            variable_costs if variable_costs is not None else [2.0] * n_generators
+        )
         self.state = None
         self.prev_gen_on = [0] * n_generators  # 前コマの稼働状態（0:停止, 1:稼働）
         self.reset()

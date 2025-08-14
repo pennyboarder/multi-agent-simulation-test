@@ -1,6 +1,16 @@
 import numpy as np
+
+
 class Generator:
-    def __init__(self, gen_type, rated_output, min_rate=0.0, max_rate=1.0, min_up_time=0, ramp_rate=0.2):
+    def __init__(
+        self,
+        gen_type,
+        rated_output,
+        min_rate=0.0,
+        max_rate=1.0,
+        min_up_time=0,
+        ramp_rate=0.2,
+    ):
         self.gen_type = gen_type
         self.rated_output = rated_output
         self.min_rate = min_rate
@@ -13,18 +23,24 @@ class Generator:
 
     def compute_output(self, action_val, n_prices, hour=None, current_day=None):
         # 出力率計算
-        output = int(self.rated_output * (self.min_rate + (self.max_rate - self.min_rate) * action_val / (n_prices - 1)))
+        output = int(
+            self.rated_output
+            * (
+                self.min_rate
+                + (self.max_rate - self.min_rate) * action_val / (n_prices - 1)
+            )
+        )
         # solar特殊処理
         if self.gen_type == "solar":
             if hour is not None and (hour < 7 or hour > 18):
                 output = 0
-            elif current_day is not None and current_day in [0, 1]:
+            elif current_day is not None and current_day in [1, 4]:
                 output = 0
             else:
                 peak = self.rated_output
                 mu = 12
                 sigma = 2.5
-                output = int(peak * np.exp(-((hour - mu) ** 2) / (2 * sigma ** 2)))
+                output = int(peak * np.exp(-((hour - mu) ** 2) / (2 * sigma**2)))
         # --- thermal/nuclear運転成約 ---
         if self.gen_type in ["thermal", "nuclear"]:
             # 最低出力率

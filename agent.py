@@ -1,7 +1,9 @@
+import random
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import random
+
 
 class DQN(nn.Module):
     def __init__(self, state_dim, action_dim):
@@ -15,8 +17,18 @@ class DQN(nn.Module):
         x = torch.relu(self.fc2(x))
         return self.fc3(x)
 
+
 class DQNAgent:
-    def __init__(self, state_dim, action_dim, lr=1e-4, gamma=0.95, epsilon=0.05, batch_size=32, memory_size=1000):
+    def __init__(
+        self,
+        state_dim,
+        action_dim,
+        lr=1e-4,
+        gamma=0.95,
+        epsilon=0.05,
+        batch_size=32,
+        memory_size=1000,
+    ):
         self.state_dim = state_dim
         self.action_dim = action_dim
         self.lr = lr
@@ -51,13 +63,18 @@ class DQNAgent:
             return
         batch = random.sample(self.memory, self.batch_size)
         # actionsが範囲外のサンプルを除外
-        valid_batch = [sample for sample in batch if isinstance(sample[1], int) and 0 <= sample[1] < self.action_dim]
+        valid_batch = [
+            sample
+            for sample in batch
+            if isinstance(sample[1], int) and 0 <= sample[1] < self.action_dim
+        ]
         if len(valid_batch) < self.batch_size:
             return
         states, actions, rewards, next_states = zip(*valid_batch)
         import numpy as np
+
         states_arr = np.array(states)
-    # ...existing code...
+        # ...existing code...
         states = torch.FloatTensor(states).to(self.device)
         actions = torch.LongTensor(actions).to(self.device)
         rewards = torch.FloatTensor(rewards).to(self.device)

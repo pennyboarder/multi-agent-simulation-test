@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-def plot_results(avg_prices, avg_demands, avg_gen_rewards, avg_ret_rewards):
+def plot_results(avg_prices, avg_demands, avg_gen_rewards, avg_ret_rewards, result_dir='result'):
     plt.figure(figsize=(14,10))
     plt.subplot(2,2,1)
     plt.plot(avg_prices)
@@ -24,10 +24,11 @@ def plot_results(avg_prices, avg_demands, avg_gen_rewards, avg_ret_rewards):
     plt.xlabel('Episode')
     plt.ylabel('Reward')
     plt.tight_layout()
-    plt.savefig("market_simulation_results.png")
-    print("Saved graph as market_simulation_results.png")
+    outpath = f"{result_dir}/market_simulation_results.png"
+    plt.savefig(outpath)
+    print(f"Saved graph as {outpath}")
 
-def plot_generation_mix(slot_gen_actions_history, gen_types, n_slots):
+def plot_generation_mix(slot_gen_actions_history, gen_types, n_slots, result_dir='result'):
     gen_type_list = ["thermal", "nuclear", "pumped_storage", "solar", "pumped_storage_charge"]
     gen_type_indices = {t: [i for i, gt in enumerate(gen_types) if gt == t] for t in ["thermal", "nuclear", "pumped_storage", "solar"]}
     gen_type_generation = {t: [] for t in gen_type_list}
@@ -49,10 +50,17 @@ def plot_generation_mix(slot_gen_actions_history, gen_types, n_slots):
         ax.bar(np.arange(n_slots), gen_type_generation[t], bottom=bottom, label=t.capitalize(), color=colors[t])
         bottom += np.array(gen_type_generation[t])
     ax.bar(np.arange(n_slots), -np.array(gen_type_generation["pumped_storage_charge"]), bottom=bottom, label="PumpedStorage Charge", color=colors["pumped_storage_charge"])
-    ax.set_xlabel('Slot (30min)')
+    # x軸を24時間表記に
+    slot_ticks = np.arange(0, n_slots+1, 4)  # 2時間ごと（48コマ/日）
+    hour_labels = [(i//2)%24 for i in slot_ticks]
+    ax.set_xticks(slot_ticks)
+    ax.set_xticklabels(hour_labels)
+    ax.set_xlabel('Hour of Day')
     ax.set_ylabel('Generation (Market Price x Count, approx)')
     ax.set_title('Generation Mix per Slot (Stacked, Last Episode)')
     ax.legend()
+    ax.grid(True, which='both', axis='x', linestyle='--', alpha=0.5)
     fig.tight_layout()
-    fig.savefig("generation_mix_per_slot.png")
-    print("Saved graph as generation_mix_per_slot.png")
+    outpath = f"{result_dir}/generation_mix_per_slot.png"
+    fig.savefig(outpath)
+    print(f"Saved graph as {outpath}")

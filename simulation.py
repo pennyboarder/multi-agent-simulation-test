@@ -33,7 +33,7 @@ def run_simulation(
     generator_list = []
     for gt in gen_types:
         if gt == "thermal":
-            generator_list.append(Generator(gt, rated_output=10, min_rate=0.3, max_rate=1.0, min_up_time=3, ramp_rate=0.2))
+            generator_list.append(Generator(gt, rated_output= 10, min_rate=0.3, max_rate=1.0, min_up_time=3, ramp_rate=0.2))
         elif gt == "nuclear":
             generator_list.append(Generator(gt, rated_output=15, min_rate=0.3, max_rate=1.0, min_up_time=3, ramp_rate=0.2))
         elif gt == "pumped_storage":

@@ -1,0 +1,34 @@
+# 収束判定用のウィンドウサイズ
+n_generators: 20  # 発電機の総数（台）
+n_retailers: 2  # 小売事業者の数（社）
+n_prices: 10  # 発電機の入札価格の離散値数（段階）
+n_demands: 100  # 小売事業者の需要選択肢の離散値数（段階）
+days_per_episode: 7  # 1エピソードあたりの日数（日）
+n_slots_per_day: 48  # 1日あたりのコマ数（例: 48なら30分刻み）（コマ）
+n_episodes: 1000  # 学習エピソード数（回）
+window: 100  # 収束判定用のウィンドウサイズ（エピソード）
+threshold: 0.01  # 収束判定の閾値（標準偏差、単位なし）
+gen_types:
+  # 発電機タイプ（thermal:火力, nuclear:原子力, pumped_storage:揚水, solar:太陽光）
+  - thermal
+  - thermal
+  - thermal
+  - thermal
+  - thermal
+  - thermal
+  - nuclear  # 原子力
+  - nuclear
+  - nuclear
+  - pumped_storage  # 揚水
+  - pumped_storage
+  - pumped_storage
+  - solar  # 太陽光
+  - solar
+  - solar
+# 発電機ごとの起動コスト
+startup_costs: [30,30,30,30,30,30,30,30,30,30,30,100,100,100,10,10,10,0,0,0]
+# 発電機ごとの変動コスト
+variable_costs: [8,8,8,8,8,8,8,8,8,8,8,1,1,1,0.8,0.8,0.8,0.05,0.05,0.05]
+
+startup_costs: [30,30,30,30,30,30,30,30,30,30,30,100,100,100,10,10,10,0,0,0]  # 発電機ごとの起動コスト（万円/回）
+variable_costs: [8,8,8,8,8,8,8,8,8,8,8,1,1,1,0.8,0.8,0.8,0.05,0.05,0.05]  # 発電機ごとの変動コスト（万円/コマ）
